@@ -1,7 +1,6 @@
 import mixed from '../src/mixed';
 import object from '../src/object';
 import string from '../src/string';
-import ValidationError from '../src/ValidationError';
 import reach from '../src/util/reach';
 
 let noop = () => {}
@@ -22,10 +21,8 @@ describe( 'Mixed Types ', function(){
 
     //console.log(next)
     return Promise.all([
-      //inst.isValid().should.eventually().equal(true),
-      next.isValid(null).then(f => {
-        console.log('here', f)
-      })
+      inst.isValid().should.eventually().equal(true),
+      next.isValid().should.eventually().equal(false),
     ])
   })
 
@@ -301,9 +298,7 @@ describe( 'Mixed Types ', function(){
 
   it('should allow custom validation', async () => {
     let inst = string()
-      .test('name', 'test a', val =>
-        Promise.resolve(val === 'jim')
-      )
+      .test('name', 'test a', val => val === 'jim')
 
     return inst.validate('joe').should.be.rejected().then(e => {
       e.errors[0].should.equal('test a')

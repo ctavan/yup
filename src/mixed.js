@@ -12,6 +12,9 @@ import Ref from './Reference';
 
 let notEmpty = value => !isAbsent(value);
 
+const DEBUG_SYNC = true;
+
+
 function extractTestParams(name, message, test) {
   var opts = name;
 
@@ -166,32 +169,21 @@ SchemaType.prototype = {
     return value
   },
 
-  validate(value, options = {}) {
-    if (typeof options === 'function') {
-      cb = options
-      options = {}
-    }
-
-    let schema = this.resolve(options)
-
-    return schema._validate(value, options)
-  },
-
   _validate(_value, options = {}) {
     let value  = _value;
 
     let isStrict = this._option('strict', options)
     let endEarly = this._option('abortEarly', options)
 
+    let sync = options.sync
     let path = options.path
     let label = this._label
 
     if (!isStrict) {
-
       value = this._cast(value, { assert: false, ...options })
     }
     // value is cast, we can check if it meets type requirements
-    let validationParams = { value, path, schema: this, options, label }
+    let validationParams = { value, path, schema: this, options, label, sync }
     let initialTests = []
 
     if (this._typeError)
@@ -203,9 +195,10 @@ SchemaType.prototype = {
     if (this._blacklistError)
       initialTests.push(this._blacklistError(validationParams));
 
-    return runValidations({ validations: initialTests, endEarly, value, path })
+    return runValidations({ validations: initialTests, endEarly, value, path, sync })
       .then(value => runValidations({
         path,
+        sync,
         value,
         endEarly,
         validations: this.tests.map(fn => fn(validationParams)),
@@ -213,22 +206,39 @@ SchemaType.prototype = {
   },
 
 
-  isValid(value, options) {
-    if (typeof options === 'function') {
-      cb = options
-      options = {}
-    }
+  validate(value, options = {}) {
+    let schema = this.resolve(options)
+    options.sync = DEBUG_SYNC
+    return schema._validate(value, options)
+  },
 
+  validateSync(value, options = {}) {
+    let schema = this.resolve(options)
+    return schema._validate(value, { ...options, sync: true })
+  },
+
+
+  isValid(value, options) {
     return this
       .validate(value, options)
       .then(() => true)
       .catch(err => {
-        if ( err.name === 'ValidationError')
+        if (err.name === 'ValidationError')
           return false
 
         throw err
       })
-    },
+  },
+
+  isValidSync(value, options) {
+    let result = true;
+    this.validateSync(value, { ...options }).catch(err => {
+      if (err.name === 'ValidationError') result = false
+      throw err
+    })
+
+    return result;
+  },
 
   getDefault({ context, parent }) {
     return this._resolve(context, parent).default()

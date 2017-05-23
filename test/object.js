@@ -74,17 +74,17 @@ describe('Object types', () => {
     })
 
     it('should run validations recursively', async () => {
+      await inst.isValid().should.eventually().equal(true)
+
       let error = await inst.validate(obj).should.be.rejected();
 
       error.errors.length.should.equal(1)
       error.errors[0].should.contain('nested.str')
 
+      obj.nested.str = 'hello';
       obj.arr[1] = 8
 
-      await inst.isValid().should.eventually().equal(true)
-
       error = await inst.validate(obj).should.be.rejected()
-
       error.errors[0].should.contain('arr[1]')
     })
 
@@ -377,6 +377,7 @@ describe('Object types', () => {
         nested: lazy(value => {
           value.should.equal('foo')
           done()
+          return string()
         })
       })
 
@@ -388,6 +389,7 @@ describe('Object types', () => {
       let inst = lazy((_, options) => {
         options.should.equal(opts)
         done()
+        return string()
       })
 
       inst.cast({ nested: 'foo' }, opts)
@@ -486,11 +488,8 @@ describe('Object types', () => {
 
   it('should sort errors by insertion order', async () => {
     let inst = object({
-      foo: string().test('foo', () => {
-        return new Promise(resolve => {
-          setTimeout(() => resolve(false), 10)
-        })
-      }),
+      // use `when` to make sure it is validated second
+      foo: string().when('bar', () => string().min(5)),
       bar: string().required()
     })
 
@@ -498,8 +497,9 @@ describe('Object types', () => {
       .validate({ foo: 'foo' }, { abortEarly: false })
       .should.rejected();
 
+
     err.errors.should.eql([
-      'foo is invalid',
+      'foo must be at least 5 characters',
       'bar is a required field'
     ])
   })
