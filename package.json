@@ -1,6 +1,6 @@
 {
   "name": "@contentpass/yup",
-  "version": "0.21.3",
+  "version": "0.21.3-alpha.0",
   "description": "Dead simple Object schema validation",
   "main": "lib/index.js",
   "scripts": {
