@@ -38,7 +38,7 @@ export default function SchemaType(options = {}) {
 
   this._deps = [];
   this._conditions = [];
-  this._options = { abortEarly: true, recursive: true };
+  this._options = { abortEarly: true, recursive: true, sync: true };
   this._exclusive = Object.create(null);
   this._whitelist = new Set();
   this._blacklist = new Set();
@@ -174,11 +174,11 @@ SchemaType.prototype = {
 
   _validate(_value, options = {}) {
     let value = _value;
-    const originalValue = options.originalValue != null ?
-      options.originalValue : _value;
+    const originalValue = options.originalValue != null ? options.originalValue : _value;
 
     const isStrict = this._option('strict', options);
     const abortEarly = this._option('abortEarly', options);
+    const sync = this._option('sync', options);
 
     const path = options.path;
     const label = this._label;
@@ -196,11 +196,18 @@ SchemaType.prototype = {
 
     if (this._blacklistError) { initialTests.push(this._blacklistError(validationParams)); }
 
-    return runValidations({ validations: initialTests, abortEarly, value, path })
+    return runValidations({
+      validations: initialTests,
+      abortEarly,
+      sync,
+      value,
+      path,
+    })
       .then(val => runValidations({
         path,
         value: val,
         abortEarly,
+        sync,
         validations: this.tests.map(fn => fn(validationParams)),
       }));
   },
@@ -280,7 +287,9 @@ SchemaType.prototype = {
     const opts = extractTestParams(name, message, test);
     const next = this.clone();
 
-    const validate = createValidation(opts);
+    const sync = this._option('sync');
+
+    const validate = createValidation({ ...opts, sync });
 
     const isExclusive = (
       opts.exclusive ||
@@ -323,9 +332,12 @@ SchemaType.prototype = {
   typeError(message) {
     const next = this.clone();
 
+    const sync = this._option('sync');
+
     next._typeError = createValidation({
       name: 'typeError',
       message,
+      sync,
       test(value) {
         if (value !== undefined && !this.schema.isType(value)) {
           return this.createError({
@@ -343,6 +355,8 @@ SchemaType.prototype = {
   oneOf(enums, message = locale.oneOf) {
     const next = this.clone();
 
+    const sync = this._option('sync');
+
     enums.forEach((val) => {
       if (next._blacklist.has(val)) { next._blacklist.delete(val); }
       next._whitelist.add(val);
@@ -351,6 +365,7 @@ SchemaType.prototype = {
     next._whitelistError = createValidation({
       message,
       name: 'oneOf',
+      sync,
       test(value) {
         const valids = this.schema._whitelist;
         if (valids.size && !(value === undefined || valids.has(value))) {
@@ -370,6 +385,8 @@ SchemaType.prototype = {
   notOneOf(enums, message = locale.notOneOf) {
     const next = this.clone();
 
+    const sync = this._option('sync');
+
     enums.forEach((val) => {
       next._whitelist.delete(val);
       next._blacklist.add(val);
@@ -378,6 +395,7 @@ SchemaType.prototype = {
     next._blacklistError = createValidation({
       message,
       name: 'notOneOf',
+      sync,
       test(value) {
         const invalids = this.schema._blacklist;
         if (invalids.size && invalids.has(value)) {

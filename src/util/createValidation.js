@@ -1,6 +1,7 @@
 /* eslint-disable no-param-reassign */
 import mapValues from 'lodash/mapValues';
 
+import getPromise from './getPromise';
 import Ref from '../Reference';
 import ValidationError from '../ValidationError';
 
@@ -37,7 +38,7 @@ function createErrorFactory({ value, label, resolve, originalValue, ...opts }) {
 }
 
 export default function createValidation(options) {
-  const { name, message, test, params } = options;
+  const { name, message, test, params, sync } = options;
 
   function validate({ value, path, label, options: validateOptions, originalValue, ...rest }) {
     const parent = validateOptions.parent;
@@ -64,7 +65,7 @@ export default function createValidation(options) {
       ...rest,
     };
 
-    return Promise
+    return getPromise(sync)
       .resolve(test.call(ctx, value))
       .then((validOrError) => {
         if (ValidationError.isError(validOrError)) {
